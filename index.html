@@ -567,7 +567,7 @@ img{ max-width:100%; }
     <img class="hero-brasao" src="assets/brasao-novo-web.png" alt="Brasão do 1º Esqd C Pqdt">
     <div class="kicker">1º Esquadrão de Cavalaria Pára-quedista</div>
     <h1 class="hero-title">Coleção Comemorativa<br><span>1º Esqd C Pqdt</span></h1>
-    <p class="hero-lead">Vista e brinde com o símbolo do Esquadrão. Escolha sua camisa, garanta seu copo e faça tudo nesta página. <b>Levando os dois, você parcela em 2x.</b></p>
+    <p class="hero-lead">Vista e brinde com o símbolo do Esquadrão. Escolha sua camisa, garanta seu copo e faça tudo nesta página.</p>
 
     <div class="picks">
       <a class="pick" href="#camisa">
@@ -602,7 +602,6 @@ img{ max-width:100%; }
       <div class="eyebrow">Vista o Esquadrão</div>
       <h2>Camisa Comemorativa</h2>
       <div class="price-line"><span class="price-big" data-price="camisa"></span><small>por camisa</small></div>
-      <div class="parcel-pill">Com o copo junto: <b>parcele em 2x</b></div>
       <div class="facts">
         <div class="fact"><b>2 cores</b><span>Bordô · Bege</span></div>
         <div class="fact"><b>PP–GG</b><span>todos os tamanhos</span></div>
@@ -630,7 +629,6 @@ img{ max-width:100%; }
       <div class="eyebrow"><span class="new">Novo</span> Brinde com o Esquadrão</div>
       <h2>Copo Térmico 4 em 1</h2>
       <div class="price-line"><span class="price-big" data-price="copo"></span><small>por copo</small></div>
-      <div class="parcel-pill">Com a camisa junto: <b>parcele em 2x</b></div>
       <p class="desc">Preto, com gravação dos dois lados: <b>Centauros Alados</b> na frente e <b>“Brindamos à morte, ao perigo!”</b> no verso. Um copo que serve para tudo:</p>
       <div class="features">
         <div class="feature"><div class="feature-img"><img src="assets/copo-longneck.jpg" alt=""></div><span>Long neck</span></div>
@@ -647,8 +645,7 @@ img{ max-width:100%; }
     <div class="kit-thumbs"><img src="assets/modelos.jpg" alt=""><img src="assets/copo-frente.jpg" alt=""></div>
     <div class="kit-text">
       <b>Leve os dois</b>
-      <span>Camisa + copo por <em id="kitPrice"></em>, tudo em um pedido só.</span><br>
-      <strong id="kitParcel"></strong>
+      <span>Camisa + copo por <em id="kitPrice"></em>, tudo em um pedido só.</span>
     </div>
     <button type="button" class="btn btn-dark" data-want="kit">Montar meu kit →</button>
   </section>
@@ -791,6 +788,7 @@ const CONFIG = {
 
   PRECO_CAMISA: 50,
   PRECO_COPO: 45,
+  PARCELAMENTO: false,                    // true = volta a oferecer 2x para pedidos com camisa + copo
   PIX_CHAVE: "21973135625",               // o que é copiado
   PIX_CHAVE_EXIBICAO: "(21) 97313-5625",  // o que aparece na tela
   PIX_FAVORECIDO: "Magno Silva Loureiro",
@@ -881,7 +879,6 @@ function nomeDeGuerra(nome){
 document.querySelectorAll('[data-price="camisa"]').forEach(el => el.textContent = brlCurto(CONFIG.PRECO_CAMISA));
 document.querySelectorAll('[data-price="copo"]').forEach(el => el.textContent = brlCurto(CONFIG.PRECO_COPO));
 $("#kitPrice").textContent = brlCurto(CONFIG.PRECO_CAMISA + CONFIG.PRECO_COPO);
-$("#kitParcel").textContent = `ou 2x de ${brl((CONFIG.PRECO_CAMISA + CONFIG.PRECO_COPO) / 2)}`;
 $("#coposUnit").textContent = `Quantidade × ${brl(CONFIG.PRECO_COPO)}`;
 $("#pixValue").textContent = CONFIG.PIX_CHAVE_EXIBICAO;
 $("#pixName").textContent = CONFIG.PIX_FAVORECIDO;
@@ -1075,7 +1072,7 @@ coposInput.addEventListener("focusout", () => { coposInput.value = state.copos; 
    TOTAIS
    ============================================================ */
 /* Parcelamento em 2x: só para pedidos com camisa E copo. */
-const podeParcelar = () => qtdCamisas() > 0 && state.copos > 0;
+const podeParcelar = () => CONFIG.PARCELAMENTO && qtdCamisas() > 0 && state.copos > 0;
 const parcelado = () => podeParcelar() && state.parcelado;
 const valorParcela = total => Math.round(total * 100 / 2) / 100;
 
@@ -1094,7 +1091,7 @@ function renderParcel(){
       </div>
       ${state.parcelado ? `<div class="pay-note">Pague agora a <b>1ª parcela de ${brl(p)}</b> e anexe o comprovante.
         A <b>2ª parcela de ${brl(total - p)}</b> é paga depois, pelo mesmo Pix.</div>` : ""}`;
-  } else if(qtdCamisas() > 0 || state.copos > 0){
+  } else if(CONFIG.PARCELAMENTO && (qtdCamisas() > 0 || state.copos > 0)){
     const falta = qtdCamisas() > 0 ? "copo" : "camisa";
     slot.innerHTML = `<div class="tip"><span>💡 Adicionando ${falta === "copo" ? "um <b>copo</b>" : "uma <b>camisa</b>"} ao pedido, você pode <b>parcelar em 2x</b>.</span>
       <button type="button" class="link-btn" data-add="${falta}">Adicionar</button></div>`;
