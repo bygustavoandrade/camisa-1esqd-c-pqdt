@@ -199,6 +199,7 @@ function atualizarResumo() {
   var totalCamisas = adulto.total + infantil.total + totalOutros;
 
   resumo.clear();
+  resumo.clearFormats();
   resumo.getRange(1, 1).setValue("Resumo para os fornecedores").setFontWeight("bold").setFontSize(14);
   resumo.getRange(2, 1).setValue("Atualizado em " +
     Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "dd/MM/yyyy HH:mm"));
@@ -228,6 +229,9 @@ function atualizarResumo() {
     ["2ª parcelas ainda a receber (R$)", aReceber]
   ]);
   resumo.getRange(linhaInfo + 1, 1, 1, 2).setBackground("#FADC1C");
+  // contagens como número simples (a aba muda de layout; não herdar o formato R$ de antes)
+  resumo.getRange(linhaInfo, 2, 2, 1).setNumberFormat("0");
+  resumo.getRange(linhaInfo + 4, 2).setNumberFormat("0");
   resumo.getRange(linhaInfo + 3, 2).setNumberFormat('"R$" #,##0.00');
   resumo.getRange(linhaInfo + 5, 2).setNumberFormat('"R$" #,##0.00');
   resumo.getRange(linhaInfo, 1, 6, 1).setFontWeight("bold");
