@@ -30,7 +30,7 @@
 
 var CONFIG = {
   PRECO_CAMISA: 55,
-  PRECO_COPO: 45,
+  PRECO_COPO: 60,
   PASTA_COMPROVANTES: "Comprovantes — Camisa 1º Esqd C Pqdt",
   MODELOS_ADULTO: ["Masculina", "Feminina"],
   CORES: ["Bordô", "Bege"],
