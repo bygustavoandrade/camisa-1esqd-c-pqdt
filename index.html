@@ -604,7 +604,7 @@ img{ max-width:100%; }
       <div class="price-line"><span class="price-big" data-price="camisa"></span><small>por camisa</small></div>
       <div class="facts">
         <div class="fact"><b>2 cores</b><span>Bordô · Bege</span></div>
-        <div class="fact"><b>PP–GG</b><span>todos os tamanhos</span></div>
+        <div class="fact"><b>PP–GG</b><span>infantil: 2 a 14 anos</span></div>
         <div class="fact"><b>3 modelos</b><span>Masc · Fem · Infantil</span></div>
       </div>
       <button type="button" class="btn btn-primary btn-block" data-want="camisa">Quero a camisa →</button>
@@ -800,10 +800,14 @@ const CONFIG = {
 const OPCOES = {
   modelo:  ["Masculina", "Feminina", "Infantil"],
   cor:     ["Bordô", "Bege"],
-  tamanho: ["PP", "P", "M", "G", "GG"]
+  tamanho: ["PP", "P", "M", "G", "GG"]          // adulto (Masculina / Feminina)
 };
 const COR_HEX = { "Bordô":"#6B1424", "Bege":"#D8C6A1" };
+const IDADES = ["2 anos", "4 anos", "6 anos", "8 anos", "10 anos", "12 anos", "14 anos"]; // Infantil
 const CAMPO_LABEL = { modelo:"Modelo", cor:"Cor", tamanho:"Tamanho" };
+const ehInfantil = it => it.modelo === "Infantil";
+const opcoesTamanho = it => ehInfantil(it) ? IDADES : OPCOES.tamanho;
+const rotuloTamanho = it => ehInfantil(it) ? "Idade" : "Tamanho";
 
 /* ============================================================
    ESTADO (rascunho salvo no navegador, exceto o arquivo)
@@ -823,6 +827,7 @@ function loadDraft(){
     if(!d || !Array.isArray(d.itens)) return null;
     // rascunho antigo (só camisas): descarta itens totalmente vazios
     d.itens = d.itens.map(i => Object.assign(novoItem(), i, { qtd: clampQtd(i.qtd) }))
+                     .map(i => (i.tamanho && !opcoesTamanho(i).includes(i.tamanho)) ? Object.assign(i, { tamanho:"" }) : i)
                      .filter(i => i.modelo || i.cor || i.tamanho || i.qtd > 1);
     d.copos = clampCopos(d.copos);
     d.parcelado = !!d.parcelado;
@@ -859,7 +864,7 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, s => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[s]));
 }
 function fmtBytes(b){ return b > 1048576 ? (b/1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b/1024)) + " KB"; }
-function descItem(i){ return [i.modelo, i.cor, i.tamanho && ("Tam. " + i.tamanho)].filter(Boolean).join(" · "); }
+function descItem(i){ return [i.modelo, i.cor, i.tamanho && (ehInfantil(i) ? i.tamanho : "Tam. " + i.tamanho)].filter(Boolean).join(" · "); }
 function shirtSvg(i, cls){
   const fill = COR_HEX[i.cor] || "#E6E1D6";
   const t = i.modelo === "Infantil" ? "translate(24 26) scale(.78) translate(-24 -26)" : "";
@@ -956,16 +961,21 @@ contatoField.addEventListener("input", e => {
    ============================================================ */
 const itemsEl = $("#items");
 
+function botoesCampo(campo, it){
+  const valores = campo === "tamanho" ? opcoesTamanho(it) : OPCOES[campo];
+  return valores.map(v => {
+    const dot = campo === "cor" ? `<span class="dot" style="background:${COR_HEX[v]}"></span>` : "";
+    return `<button type="button" class="seg${campo === "tamanho" ? " size" : ""}" data-campo="${campo}" data-valor="${escapeHtml(v)}" aria-pressed="false">${dot}${escapeHtml(v)}</button>`;
+  }).join("");
+}
+
 function renderItens(){
   itemsEl.innerHTML = state.itens.map((it, idx) => {
     const grupos = Object.keys(OPCOES).map(campo => {
-      const botoes = OPCOES[campo].map(v => {
-        const dot = campo === "cor" ? `<span class="dot" style="background:${COR_HEX[v]}"></span>` : "";
-        return `<button type="button" class="seg${campo === "tamanho" ? " size" : ""}" data-campo="${campo}" data-valor="${escapeHtml(v)}" aria-pressed="false">${dot}${escapeHtml(v)}</button>`;
-      }).join("");
-      return `<div class="campo" data-campo="${campo}">
-        <div class="campo-label"><span>${CAMPO_LABEL[campo]}</span><span class="campo-erro"></span></div>
-        <div class="seg-group" role="group" aria-label="${CAMPO_LABEL[campo]}">${botoes}</div>
+      const rotulo = campo === "tamanho" ? rotuloTamanho(it) : CAMPO_LABEL[campo];
+      return `<div class="campo" data-campo="${campo}"${campo === "tamanho" ? ` data-tipo="${rotulo}"` : ""}>
+        <div class="campo-label"><span>${rotulo}</span><span class="campo-erro"></span></div>
+        <div class="seg-group" role="group" aria-label="${rotulo}">${botoesCampo(campo, it)}</div>
       </div>`;
     }).join("");
     return `<div class="item" data-idx="${idx}">
@@ -993,6 +1003,16 @@ function renderItens(){
 
 function refreshItem(el){
   const it = state.itens[+el.dataset.idx];
+  // trocou entre adulto e infantil: troca os botões (tamanho ↔ idade)
+  const gTam = el.querySelector('.campo[data-campo="tamanho"]');
+  const rotulo = rotuloTamanho(it);
+  if(gTam.dataset.tipo !== rotulo){
+    gTam.dataset.tipo = rotulo;
+    gTam.querySelector(".campo-label span").textContent = rotulo;
+    const grupo = gTam.querySelector(".seg-group");
+    grupo.setAttribute("aria-label", rotulo);
+    grupo.innerHTML = botoesCampo("tamanho", it);
+  }
   el.querySelectorAll(".seg").forEach(b => {
     const on = it[b.dataset.campo] === b.dataset.valor;
     b.classList.toggle("on", on);
@@ -1016,6 +1036,8 @@ itemsEl.addEventListener("click", e => {
   const act = e.target.closest("[data-act]");
   if(seg){
     it[seg.dataset.campo] = seg.dataset.valor;
+    // tamanho adulto não vale para infantil (e vice-versa)
+    if(seg.dataset.campo === "modelo" && it.tamanho && !opcoesTamanho(it).includes(it.tamanho)) it.tamanho = "";
   } else if(act){
     if(act.dataset.act === "remove"){
       state.itens.splice(idx, 1);

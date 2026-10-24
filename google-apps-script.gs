@@ -6,8 +6,8 @@
  *    total, forma de pagamento — à vista ou 2x —, link do comprovante, status,
  *    caixa "Conferido" e, nos parcelados, caixa "2ª parcela paga").
  *  - Aba "Camisas": 1 linha por item de camisa (modelo, cor, tamanho, quantidade).
- *  - Aba "Resumo": tabela Modelo × Cor × Tamanho das camisas + total de copos,
- *    pronta para mandar ao fornecedor.
+ *  - Aba "Resumo": camisas adulto (Modelo × Cor × Tamanho), camisas infantis
+ *    (Cor × Idade) e total de copos, pronto para mandar aos fornecedores.
  *  - Salva o comprovante numa pasta do seu Google Drive
  *    ("Comprovantes — Camisa 1º Esqd C Pqdt"), visível só para você.
  *  - Ignora reenvios do mesmo pedido (mesmo número), evitando duplicatas.
@@ -32,9 +32,10 @@ var CONFIG = {
   PRECO_CAMISA: 50,
   PRECO_COPO: 45,
   PASTA_COMPROVANTES: "Comprovantes — Camisa 1º Esqd C Pqdt",
-  MODELOS: ["Masculina", "Feminina", "Infantil"],
+  MODELOS_ADULTO: ["Masculina", "Feminina"],
   CORES: ["Bordô", "Bege"],
-  TAMANHOS: ["PP", "P", "M", "G", "GG"]
+  TAMANHOS: ["PP", "P", "M", "G", "GG"],                                  // adulto
+  IDADES: ["2 anos", "4 anos", "6 anos", "8 anos", "10 anos", "12 anos", "14 anos"] // infantil
 };
 
 var CAB_PEDIDOS = ["Recebido em", "Pedido", "Nome do militar", "Nome de guerra", "Contato (WhatsApp)",
@@ -167,34 +168,57 @@ function atualizarResumo() {
     });
   }
 
-  var tabela = [["Modelo", "Cor"].concat(CONFIG.TAMANHOS).concat(["Total"])];
-  var totaisColuna = CONFIG.TAMANHOS.map(function () { return 0; });
-  var totalCamisas = 0;
-  CONFIG.MODELOS.forEach(function (m) {
-    CONFIG.CORES.forEach(function (c) {
-      var linha = [m, c], soma = 0;
-      CONFIG.TAMANHOS.forEach(function (t, i) {
-        var q = cont[m + "|" + c + "|" + t] || 0;
-        linha.push(q); soma += q; totaisColuna[i] += q;
+  var usados = {};
+  function montarTabela(modelos, colunas) {
+    var t = [["Modelo", "Cor"].concat(colunas).concat(["Total"])];
+    var totaisColuna = colunas.map(function () { return 0; });
+    var total = 0;
+    modelos.forEach(function (m) {
+      CONFIG.CORES.forEach(function (c) {
+        var linha = [m, c], soma = 0;
+        colunas.forEach(function (tam, i) {
+          var k = m + "|" + c + "|" + tam;
+          var q = cont[k] || 0;
+          usados[k] = true;
+          linha.push(q); soma += q; totaisColuna[i] += q;
+        });
+        linha.push(soma); total += soma;
+        t.push(linha);
       });
-      linha.push(soma); totalCamisas += soma;
-      tabela.push(linha);
     });
-  });
-  tabela.push(["TOTAL", ""].concat(totaisColuna).concat([totalCamisas]));
+    t.push(["TOTAL", ""].concat(totaisColuna).concat([total]));
+    return { tabela: t, total: total };
+  }
+  var adulto = montarTabela(CONFIG.MODELOS_ADULTO, CONFIG.TAMANHOS);
+  var infantil = montarTabela(["Infantil"], CONFIG.IDADES);
+
+  // combinações fora das grades (ex: infantil pedido em PP–GG antes da troca para idade)
+  var outros = Object.keys(cont).filter(function (k) { return !usados[k] && cont[k]; })
+    .map(function (k) { var p = k.split("|"); return [p[0], p[1], p[2], cont[k]]; });
+  var totalOutros = outros.reduce(function (s, r) { return s + r[3]; }, 0);
+  var totalCamisas = adulto.total + infantil.total + totalOutros;
 
   resumo.clear();
   resumo.getRange(1, 1).setValue("Resumo para os fornecedores").setFontWeight("bold").setFontSize(14);
   resumo.getRange(2, 1).setValue("Atualizado em " +
     Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "dd/MM/yyyy HH:mm"));
 
-  resumo.getRange(4, 1).setValue("CAMISAS").setFontWeight("bold");
-  var ini = 5;
-  resumo.getRange(ini, 1, tabela.length, tabela[0].length).setValues(tabela).setHorizontalAlignment("center");
-  resumo.getRange(ini, 1, 1, tabela[0].length).setFontWeight("bold").setBackground("#8FD3F4");
-  resumo.getRange(ini + tabela.length - 1, 1, 1, tabela[0].length).setFontWeight("bold").setBackground("#FADC1C");
+  function escreverTabela(linhaTitulo, titulo, tabela) {
+    resumo.getRange(linhaTitulo, 1).setValue(titulo).setFontWeight("bold");
+    var ini = linhaTitulo + 1;
+    resumo.getRange(ini, 1, tabela.length, tabela[0].length).setValues(tabela).setHorizontalAlignment("center");
+    resumo.getRange(ini, 1, 1, tabela[0].length).setFontWeight("bold").setBackground("#8FD3F4");
+    resumo.getRange(ini + tabela.length - 1, 1, 1, tabela[0].length).setFontWeight("bold").setBackground("#FADC1C");
+    return ini + tabela.length + 1; // próxima linha livre (com 1 de espaço)
+  }
+  var proxima = escreverTabela(4, "CAMISAS ADULTO", adulto.tabela);
+  proxima = escreverTabela(proxima, "CAMISAS INFANTIS (por idade)", infantil.tabela);
+  if (outros.length) {
+    proxima = escreverTabela(proxima, "OUTRAS (fora da grade — conferir)",
+      [["Modelo", "Cor", "Tamanho", "Qtd"]].concat(outros).concat([["TOTAL", "", "", totalOutros]]));
+  }
 
-  var linhaInfo = ini + tabela.length + 1;
+  var linhaInfo = proxima;
   resumo.getRange(linhaInfo, 1, 6, 2).setValues([
     ["Camisas", totalCamisas],
     ["Copos Térmicos 4 em 1", totalCopos],
